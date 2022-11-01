@@ -1,0 +1,16 @@
+﻿https://learn.microsoft.com/en-us/azure/iot-dps/quick-create-simulated-device-x509?tabs=windows&pivots=programming-language-csharp
+
+az deployment group create --resource-group RG-TEMP  --confirm-with-what-if --template-file main.bicep
+
+
+openssl req -outform PEM -x509 -sha256 -newkey rsa:4096 -keyout private-key.pem -out public-key.pem -days 30 -extensions usr_cert -addext extendedKeyUsage=clientAuth -subj "/CN=my-x509-device"
+
+openssl pkcs12 -inkey private-key.pem -in public-key.pem -export -out certificate.pfx
+
+dotnet run -- -s 0ne0081CE48 -c certificate.pfx -p 1234
+dotnet run -- -s 0ne0081CE48 -c device-01-full-chain.pfx -p 1234 
+dotnet run -- -s 0ne0081CE48 -c device-02-full-chain.pfx -p 1234
+
+-----------------------
+openssl req  -newkey rsa:2048 -nodes  -keyout private-key.pem -out public-key.pem -x509 -days 365  ---
+openssl pkcs12 -inkey private-key.pem -in public-key.pem -export -out cer.pfx

@@ -1,0 +1,66 @@
+https://learn.microsoft.com/en-us/azure/iot-dps/tutorial-custom-hsm-enrollment-group-x509?tabs=windows
+
+Create the directory structure, the database file (index.txt), and the serial number file (serial)
+mkdir certs csr newcerts private
+touch index.txt
+openssl rand -hex 16 > serial
+
+create root ca private key
+openssl genrsa -aes256 -passout pass:1234 -out ./private/azure-iot-test-only.root.ca.key.pem 4096
+
+Create the root CA certificate
+openssl req -new -x509 -config ./openssl_root_ca.cnf -passin pass:1234 -key ./private/azure-iot-test-only.root.ca.key.pem -subj /CN=larisoft.com -days 3650 -sha256 -extensions v3_ca -out ./certs/azure-iot-test-only.root.ca.cert.pem
+
+Examine the root CA certificate
+openssl x509 -noout -text -in ./certs/azure-iot-test-only.root.ca.cert.pem
+
+Create the intermediate CA private key
+openssl genrsa -aes256 -passout pass:1234 -out ./private/azure-iot-test-only.intermediate.key.pem 4096
+
+Create the intermediate CA certificate signing request (CSR)
+openssl req -new -sha256 -passin pass:1234 -config ./openssl_device_intermediate_ca.cnf -subj /CN=nadeem.one -key ./private/azure-iot-test-only.intermediate.key.pem -out ./csr/azure-iot-test-only.intermediate.csr.pem
+
+Sign the intermediate certificate with the root CA certificate
+openssl ca -batch -config ./openssl_root_ca.cnf -passin pass:1234 -extensions v3_intermediate_ca -days 3650 -notext -md sha256 -in ./csr/azure-iot-test-only.intermediate.csr.pem -out ./certs/azure-iot-test-only.intermediate.cert.pem
+
+Examine the intermediate CA certificate:
+openssl x509 -noout -text -in ./certs/azure-iot-test-only.intermediate.cert.pem
+
+Create the first device private key.
+openssl genrsa -out ./private/device-01.key.pem 4096
+
+Create the device certificate CSR.
+openssl req -config ./openssl_device_intermediate_ca.cnf -key ./private/device-01.key.pem -subj /CN=device-01 -new -sha256 -out ./csr/device-01.csr.pem
+
+Sign the device certificate.
+openssl ca -batch -config ./openssl_device_intermediate_ca.cnf -passin pass:1234 -extensions usr_cert -days 3650 -notext -md sha256 -in ./csr/device-01.csr.pem -out ./certs/device-01.cert.pem
+
+Examine the device certificate:
+openssl x509 -noout -text -in ./certs/device-01.cert.pem
+
+
+openssl pkcs12 -inkey ./private/azure-iot-test-only.root.ca.key.pem -in ./certs/azure-iot-test-only.root.ca.cert.pem -export -passin pass:1234 -passout pass:1234 -out ./certs/root.pfx
+
+openssl pkcs12 -inkey ./private/azure-iot-test-only.intermediate.key.pem -in ./certs/azure-iot-test-only.intermediate.cert.pem -export -passin pass:1234 -passout pass:1234 -out ./certs/intermediate.pfx
+
+openssl pkcs12 -inkey ./private/device-01.key.pem -in ./certs/device-01.cert.pem -export -passin pass:1234 -passout pass:1234 -out ./certs/device-01.pfx
+openssl pkcs12 -inkey ./private/device-02.key.pem -in ./certs/device-02.cert.pem -export -passin pass:1234 -passout pass:1234 -out ./certs/device-02.pfx
+
+full chain to create in pfx format -01 -- important
+type azure-iot-test-only.intermediate.cert.pem azure-iot-test-only.root.ca.cert.pem > device-01-ca-intermidiate-chain.cert.pem
+
+
+openssl pkcs12 -export -out ./certs/device-01-full-chain.pfx -inkey ./private/device-01.key.pem -in ./certs/device-01.cert.pem -certfile ./certs/device-01-ca-intermidiate-chain.cert.pem
+
+certutil -dump ./certs/device-01-full-chain.pfx
+
+full chain to create in pfx format -02 
+type azure-iot-test-only.intermediate.cert.pem azure-iot-test-only.root.ca.cert.pem > device-02-ca-intermidiate-chain.cert.pem
+
+
+openssl pkcs12 -export -out ./certs/device-02-full-chain.pfx -inkey ./private/device-02.key.pem -in ./certs/device-02.cert.pem -certfile ./certs/device-02-ca-intermidiate-chain.cert.pem
+
+certutil -dump ./certs/device-01-full-chain.pfx
+
+
+
